@@ -2,17 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
-import { useAccount } from "wagmi";
-import { useScaffoldContractRead, useScaffoldContractWrite } from "~~/hooks/scaffold-eth";
+import { useAccount, useNetwork } from "wagmi";
+import { useDivviReferral, useScaffoldContractRead, useScaffoldContractWrite } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
 
 export const LiquidityPanel = () => {
   const { address: connectedAddress } = useAccount();
+  const { chain } = useNetwork();
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
   const [removeAmount, setRemoveAmount] = useState("");
   const [isApprovedA, setIsApprovedA] = useState(false);
   const [isApprovedB, setIsApprovedB] = useState(false);
+
+  // Divvi referral integration
+  const { getDataSuffix, submitDivviReferral } = useDivviReferral();
 
   // Get token addresses
   const { data: tokenAAddress } = useScaffoldContractRead({
@@ -148,8 +152,21 @@ export const LiquidityPanel = () => {
       return;
     }
 
+    if (!connectedAddress) {
+      notification.error("Please connect your wallet");
+      return;
+    }
+
     try {
-      await addLiquidity();
+      // Execute add liquidity with Divvi referral tag
+      const dataSuffix = getDataSuffix(connectedAddress);
+      const txHash = await addLiquidity({ dataSuffix: dataSuffix as `0x${string}` });
+
+      // Submit referral to Divvi's attribution tracking API
+      if (txHash && chain?.id) {
+        await submitDivviReferral(txHash, chain.id);
+      }
+
       notification.success("Liquidity added!");
       setAmountA("");
       setAmountB("");
@@ -166,8 +183,21 @@ export const LiquidityPanel = () => {
       return;
     }
 
+    if (!connectedAddress) {
+      notification.error("Please connect your wallet");
+      return;
+    }
+
     try {
-      await removeLiquidity();
+      // Execute remove liquidity with Divvi referral tag
+      const dataSuffix = getDataSuffix(connectedAddress);
+      const txHash = await removeLiquidity({ dataSuffix: dataSuffix as `0x${string}` });
+
+      // Submit referral to Divvi's attribution tracking API
+      if (txHash && chain?.id) {
+        await submitDivviReferral(txHash, chain.id);
+      }
+
       notification.success("Liquidity removed!");
       setRemoveAmount("");
       setTimeout(() => refetchUserLiquidity(), 2000);

@@ -50,10 +50,12 @@ export const useScaffoldContractWrite = <
   const sendContractWriteTx = async ({
     args: newArgs,
     value: newValue,
+    dataSuffix,
     ...otherConfig
   }: {
     args?: UseScaffoldWriteConfig<TContractName, TFunctionName>["args"];
     value?: UseScaffoldWriteConfig<TContractName, TFunctionName>["value"];
+    dataSuffix?: `0x${string}`;
   } & UpdatedArgs = {}) => {
     if (!deployedContractData) {
       notification.error("Target Contract is not deployed, did you forget to run `yarn deploy`?");
@@ -76,8 +78,9 @@ export const useScaffoldContractWrite = <
             wagmiContractWrite.writeAsync({
               args: newArgs ?? args,
               value: newValue ?? value,
+              dataSuffix,
               ...otherConfig,
-            }),
+            } as any),
           { onBlockConfirmation, blockConfirmations },
         );
 

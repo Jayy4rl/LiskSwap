@@ -2,17 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
-import { useAccount } from "wagmi";
-import { useScaffoldContractRead, useScaffoldContractWrite } from "~~/hooks/scaffold-eth";
+import { useAccount, useNetwork } from "wagmi";
+import { useDivviReferral, useScaffoldContractRead, useScaffoldContractWrite } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
 
 export const SwapPanel = () => {
   const { address: connectedAddress } = useAccount();
+  const { chain } = useNetwork();
   const [inputAmount, setInputAmount] = useState("");
   const [outputAmount, setOutputAmount] = useState("");
   const [isTokenAInput, setIsTokenAInput] = useState(true); // true = MTK->sUSDC, false = sUSDC->MTK
   const [isApprovedA, setIsApprovedA] = useState(false);
   const [isApprovedB, setIsApprovedB] = useState(false);
+
+  // Divvi referral integration
+  const { getDataSuffix, submitDivviReferral } = useDivviReferral();
 
   // Get token addresses from DEX contract
   const { data: tokenAAddress } = useScaffoldContractRead({
@@ -137,8 +141,21 @@ export const SwapPanel = () => {
       return;
     }
 
+    if (!connectedAddress) {
+      notification.error("Please connect your wallet");
+      return;
+    }
+
     try {
-      await executeSwap();
+      // Execute swap with Divvi referral tag appended to transaction data
+      const dataSuffix = getDataSuffix(connectedAddress);
+      const txHash = await executeSwap({ dataSuffix: dataSuffix as `0x${string}` });
+
+      // Submit referral to Divvi's attribution tracking API
+      if (txHash && chain?.id) {
+        await submitDivviReferral(txHash, chain.id);
+      }
+
       notification.success("Swap successful!");
       setInputAmount("");
       setOutputAmount("");
